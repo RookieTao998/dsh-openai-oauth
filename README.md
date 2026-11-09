@@ -42,11 +42,20 @@ When it finishes, you only need to approve any DSH restart and complete the Chat
 Desktop includes its Node and pnpm runtime. Start Desktop once to initialize its profile. Use the application menu's **Manage dsh Command…** to install the command, open a new terminal, and confirm `dsh --version` is `0.2.2-rc.1`. Quit Desktop through its tray menu; closing the window keeps it running. From this project's root, install the locally built package:
 
 ```powershell
-dsh plugin --profile desktop add .\artifacts\dsh-openai-oauth-0.4.0.tgz
+$pluginArchive = (Resolve-Path .\artifacts\dsh-openai-oauth-0.4.0.tgz).Path
+dsh plugin --profile desktop add $pluginArchive
 dsh plugin --profile desktop list
 ```
 
-You can also install through Desktop’s Plugins UI. Do not use an ordinary npm-installed `dsh` to manage the Desktop profile; check the command's actual location in its management dialog. Reopen Desktop to load the plugin. Version `0.4.0` has not been published to npm; use the local archive.
+You can also install through Desktop's Plugins UI: paste the archive's absolute path into **Add plugin**, without surrounding quotation marks. For this checkout:
+
+```text
+E:/workspeace/dsh-openai-oauth/artifacts/dsh-openai-oauth-0.4.0.tgz
+```
+
+Windows **Copy as path** may add quotation marks; remove them after pasting into the UI. The UI treats them as part of the address and reports “not a package name the registry accepts”. A terminal shell handles command-line quotes separately.
+
+Do not use an ordinary npm-installed `dsh` to manage the Desktop profile; check the command's actual location in its management dialog. Reopen Desktop to load the plugin. Version `0.4.0` has not been published to npm; use the local archive.
 
 ### Install with DSH Web
 

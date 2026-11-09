@@ -49,13 +49,16 @@ The pre-existing HTTP JSON reader safely rejects oversized chunked bodies by clo
 
 Build output: `artifacts/dsh-openai-oauth-0.4.0.tgz` (local archive; not published to npm).
 
-SHA-256: `5376ece8c8f3fc674cdea1f388f491586b7c67999490c80f357735fabf6888b0`.
+SHA-256: `d23083a0cfa99cb5d30240ea1b89221b0783589ad8d90b1b96cc8a22c41fa630`.
 
 Use Desktop's **Manage dsh Command…** to install its command, verify `dsh --version` is `0.2.2-rc.1`, and quit Desktop from its tray menu. From the repository root:
 
 ```powershell
-dsh plugin --profile desktop add .\artifacts\dsh-openai-oauth-0.4.0.tgz
+$pluginArchive = (Resolve-Path .\artifacts\dsh-openai-oauth-0.4.0.tgz).Path
+dsh plugin --profile desktop add $pluginArchive
 dsh plugin --profile desktop list
 ```
 
 Reopen Desktop, then complete login yourself in **Settings → OpenAI OAuth**. Do not use an ordinary npm-installed `dsh` to manage the Desktop-owned profile. See `README.zh.md` for the full handoff.
+
+Desktop's Add plugin input accepts the absolute archive path without surrounding quotes. It trims whitespace but does not remove shell quotation marks; a quoted Windows path fails registry-name validation with `not a package name the registry accepts`. The archive name and contents are valid; this is an installation-input parsing issue. The CLI example above resolves an absolute path before passing it to DSH.

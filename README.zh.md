@@ -42,11 +42,20 @@
 Desktop 自带 Node 和 pnpm 运行时，无需另装。先启动一次 Desktop 以初始化 profile。在应用菜单的 **Manage dsh Command…（管理 dsh 命令）** 中安装命令，打开新终端并确认 `dsh --version` 是 `0.2.2-rc.1`，然后通过托盘菜单完全退出 Desktop；关闭窗口会继续在后台运行。从本项目根目录安装本地构建包：
 
 ```powershell
-dsh plugin --profile desktop add .\artifacts\dsh-openai-oauth-0.4.0.tgz
+$pluginArchive = (Resolve-Path .\artifacts\dsh-openai-oauth-0.4.0.tgz).Path
+dsh plugin --profile desktop add $pluginArchive
 dsh plugin --profile desktop list
 ```
 
-也可以在 Desktop 的 Plugins 界面安装。不要使用普通 npm 安装的 `dsh` 管理 Desktop profile；可在命令管理对话框中检查实际命令路径。重新打开 Desktop 以加载插件。`0.4.0` 尚未发布到 npm，请使用本地包。
+也可以在 Desktop 的 Plugins 界面安装：在“添加插件”输入框中粘贴 `.tgz` 的绝对路径，首尾不要加引号。例如本 checkout 使用：
+
+```text
+E:/workspeace/dsh-openai-oauth/artifacts/dsh-openai-oauth-0.4.0.tgz
+```
+
+Windows“复制文件地址”可能带上双引号；粘贴到界面后请去掉。界面会把引号当作地址的一部分，报“not a package name the registry accepts”。终端命令中的引号由 shell 处理，与界面输入不同。
+
+不要使用普通 npm 安装的 `dsh` 管理 Desktop profile；可在命令管理对话框中检查实际命令路径。重新打开 Desktop 以加载插件。`0.4.0` 尚未发布到 npm，请使用本地包。
 
 ### DSH Web 命令安装
 
