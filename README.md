@@ -25,7 +25,9 @@ Sign in to ChatGPT from DeepSeek Harness and use available Codex models without 
 - For Web/headless or source builds: Node.js `^22.19.0` or `>=24.0.0`, and `pnpm` on `PATH`
 - A ChatGPT account with Codex access
 
-Version `0.4.1` targets Windows DSH Desktop as well as local Web and headless use on macOS and Linux. Real Desktop and OAuth acceptance has not yet been completed; see the manual checks below.
+Version `0.4.2` targets Windows DSH Desktop as well as local Web and headless use on macOS and Linux. Full Desktop and OAuth acceptance is still pending; see the manual checks below.
+
+Version `0.4.2` omits Harness `temperature` settings from Codex requests, including the fixed `temperature: 0` used by Auto review. Codex controls sampling on this route. The review policy and allow/deny decisions are unchanged; verify Auto mode after upgrading.
 
 Version `0.4.1` fixes false Windows credential-permission errors during concurrent first initialization and case-sensitive PowerShell module-path environment overrides. Upgrading preserves saved credentials; add the new archive, then fully quit and reopen Desktop.
 
@@ -44,7 +46,7 @@ When it finishes, you only need to approve any DSH restart and complete the Chat
 Desktop includes its Node and pnpm runtime. Start Desktop once to initialize its profile. Use the application menu's **Manage dsh Command…** to install the command, open a new terminal, and confirm `dsh --version` is `0.2.2-rc.1`. Quit Desktop through its tray menu; closing the window keeps it running. From this project's root, install the locally built package:
 
 ```powershell
-$pluginArchive = (Resolve-Path .\artifacts\dsh-openai-oauth-0.4.1.tgz).Path
+$pluginArchive = (Resolve-Path .\artifacts\dsh-openai-oauth-0.4.2.tgz).Path
 dsh plugin --profile desktop add $pluginArchive
 dsh plugin --profile desktop list
 ```
@@ -52,19 +54,19 @@ dsh plugin --profile desktop list
 You can also install through Desktop's Plugins UI: paste the archive's absolute path into **Add plugin**, without surrounding quotation marks. For this checkout:
 
 ```text
-E:/workspeace/dsh-openai-oauth/artifacts/dsh-openai-oauth-0.4.1.tgz
+E:/workspeace/dsh-openai-oauth/artifacts/dsh-openai-oauth-0.4.2.tgz
 ```
 
 Windows **Copy as path** may add quotation marks; remove them after pasting into the UI. The UI treats them as part of the address and reports “not a package name the registry accepts”. A terminal shell handles command-line quotes separately.
 
-Do not use an ordinary npm-installed `dsh` to manage the Desktop profile; check the command's actual location in its management dialog. Reopen Desktop to load the plugin. Version `0.4.1` has not been published to npm; use the local archive.
+Do not use an ordinary npm-installed `dsh` to manage the Desktop profile; check the command's actual location in its management dialog. Reopen Desktop to load the plugin. Version `0.4.2` has not been published to npm; use the local archive.
 
 ### Install with DSH Web
 
 After the package is published:
 
 ```sh
-dsh plugin --profile web add dsh-openai-oauth@0.4.1
+dsh plugin --profile web add dsh-openai-oauth@0.4.2
 dsh --profile web --dump-config
 ```
 
@@ -74,7 +76,7 @@ dsh --profile web --dump-config
 pnpm install --frozen-lockfile
 pnpm run check
 pnpm pack
-dsh plugin --profile web add ./dsh-openai-oauth-0.4.1.tgz
+dsh plugin --profile web add ./dsh-openai-oauth-0.4.2.tgz
 dsh --profile web --dump-config
 ```
 
@@ -87,12 +89,14 @@ These Web commands use the `web` profile. Restart a running DSH Web process afte
 3. Sign in with a ChatGPT account that has Codex access.
 4. Open **Models** and select an `openai-codex` model.
 
+After initial discovery, known models and reasoning efforts resolve from memory without credential reads or network confirmation. Initial discovery and explicit catalog refresh still contact OpenAI. Cached metadata is not authorization: sending chat or search still checks credentials and refreshes expiring tokens. Old model names may remain visible after logout until the catalog refreshes, but cannot authorize requests.
+
 Browser login waits for a callback on `127.0.0.1:1455`. Use Device Code when that port is unavailable or the browser is on another machine.
 
 For a headless profile:
 
 ```sh
-dsh plugin --profile headless add ./dsh-openai-oauth-0.4.1.tgz
+dsh plugin --profile headless add ./dsh-openai-oauth-0.4.2.tgz
 dsh plugin --profile headless exec dsh-openai-login
 ```
 

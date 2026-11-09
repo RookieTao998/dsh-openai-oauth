@@ -8,7 +8,7 @@ Include the plugin version, DeepSeek Harness version, operating system, affected
 
 ## Supported security posture
 
-Version `0.4.1` targets Windows DSH Desktop `0.2.2-rc.1`, a local Web Host bound to `127.0.0.1`, and a local headless CLI. Desktop uses the public authenticated Connection RPC; its client module remains on the `web` platform. Remote, proxied, and container-forwarded transports remain outside the supported security posture. Real Desktop and OAuth acceptance has not yet been completed.
+Version `0.4.2` targets Windows DSH Desktop `0.2.2-rc.1`, a local Web Host bound to `127.0.0.1`, and a local headless CLI. Desktop uses the public authenticated Connection RPC; its client module remains on the `web` platform. Remote, proxied, and container-forwarded transports remain outside the supported security posture. Real Desktop and OAuth acceptance has not yet been completed.
 
 The credential file is plaintext, protected by current-user filesystem ACLs on Windows and owner-only filesystem modes on POSIX; it is not encrypted with DPAPI. The Web route returns no credential value, accepts requests only from loopback with a local Host header, and requires same-origin browser metadata for mutations. These controls do not protect an already-compromised operating-system account or process with access to the Harness home.
 

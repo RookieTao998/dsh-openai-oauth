@@ -32,20 +32,20 @@ For non-Desktop installations, inspect Node.js and pnpm versions and locate a us
 
 ## Registration and inspection
 
-For Windows DSH Desktop, first confirm the profile has been initialized by launching Desktop once. Its application menu's **Manage dsh Command…** installs the bundled command and shows its actual path; open a fresh terminal and verify its version. Ask before stopping a running instance, and use the tray's Quit command rather than closing its window. Use its Plugins UI or its bundled `dsh` to install the locally built `0.4.1` archive into `desktop`; this version has not been published to npm. From this checkout:
+For Windows DSH Desktop, first confirm the profile has been initialized by launching Desktop once. Its application menu's **Manage dsh Command…** installs the bundled command and shows its actual path; open a fresh terminal and verify its version. Ask before stopping a running instance, and use the tray's Quit command rather than closing its window. Use its Plugins UI or its bundled `dsh` to install the locally built `0.4.2` archive into `desktop`; this version has not been published to npm. From this checkout:
 
 ```powershell
-$pluginArchive = (Resolve-Path .\artifacts\dsh-openai-oauth-0.4.1.tgz).Path
+$pluginArchive = (Resolve-Path .\artifacts\dsh-openai-oauth-0.4.2.tgz).Path
 dsh plugin --profile desktop add $pluginArchive
 dsh plugin --profile desktop list
 ```
 
-For the Desktop Plugins UI, supply an absolute `.tgz` path without surrounding quotation marks, for example `E:/workspeace/dsh-openai-oauth/artifacts/dsh-openai-oauth-0.4.1.tgz`. The UI does not strip shell quotes: a quoted path falls through to registry package-name validation. Confirm the command is Desktop-owned rather than relying on its name on PATH. Do not boot the Desktop profile using ordinary npm-installed DSH. Reopen Desktop to load the plugin only with the user’s approval.
+For the Desktop Plugins UI, supply an absolute `.tgz` path without surrounding quotation marks, for example `E:/workspeace/dsh-openai-oauth/artifacts/dsh-openai-oauth-0.4.2.tgz`. The UI does not strip shell quotes: a quoted path falls through to registry package-name validation. Confirm the command is Desktop-owned rather than relying on its name on PATH. Do not boot the Desktop profile using ordinary npm-installed DSH. Reopen Desktop to load the plugin only with the user’s approval.
 
 For the default non-Desktop `web` profile, install the corresponding local archive (or a published package once available):
 
 ```sh
-dsh plugin --profile web add ./artifacts/dsh-openai-oauth-0.4.1.tgz
+dsh plugin --profile web add ./artifacts/dsh-openai-oauth-0.4.2.tgz
 dsh --profile web --dump-config
 ```
 
