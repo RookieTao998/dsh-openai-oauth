@@ -1,6 +1,6 @@
 {
   "name": "dsh-openai-oauth",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Self-contained OpenAI Codex OAuth provider for DeepSeek Harness",
   "repository": {
     "type": "git",
@@ -45,6 +45,7 @@
     },
     "client": {
       "inject": [
+        "@deepseek-ai/dsh-client-connection",
         "@deepseek-ai/dsh-client-ui-settings",
         "@deepseek-ai/dsh-client-ui-renderer",
         "@deepseek-ai/dsh-client-locale"
@@ -55,7 +56,8 @@
   "scripts": {
     "build": "tsdown",
     "check": "pnpm run typecheck && pnpm run build",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "node --test --test-concurrency=1 checks/credential-store.mjs checks/oauth-rpc.mjs checks/oauth-rpc-http.mjs checks/oauth-client.mjs checks/openai-oauth.mjs"
   },
   "keywords": [
     "dsh-plugin",
@@ -67,27 +69,28 @@
   "license": "MIT",
   "engines": {
     "node": "^22.19.0 || >=24.0.0",
-    "dsh": "0.2.1-rc.5"
+    "dsh": "0.2.2-rc.1"
   },
   "dependencies": {
     "proper-lockfile": "4.1.2"
   },
   "peerDependencies": {
-    "@deepseek-ai/cordis": "^4.0.5",
-    "@deepseek-ai/dsh-attachment": "0.2.1-rc.5",
-    "@deepseek-ai/dsh-client-locale": "0.2.1-rc.5",
-    "@deepseek-ai/dsh-client-ui-primitives": "0.2.1-rc.5",
-    "@deepseek-ai/dsh-client-ui-renderer": "0.2.1-rc.5",
-    "@deepseek-ai/dsh-client-ui-settings": "0.2.1-rc.5",
-    "@deepseek-ai/dsh-client-ui-slots": "0.2.1-rc.5",
-    "@deepseek-ai/dsh-home-paths": "0.2.1-rc.5",
-    "@deepseek-ai/dsh-host-webserver": "0.2.1-rc.5",
-    "@deepseek-ai/dsh-llm": "0.2.1-rc.5",
-    "@deepseek-ai/dsh-timeout": "0.2.1-rc.5",
+    "@deepseek-ai/cordis": "~4.1.0",
+    "@deepseek-ai/dsh-attachment": "0.2.2-rc.1",
+    "@deepseek-ai/dsh-client-locale": "0.2.2-rc.1",
+    "@deepseek-ai/dsh-client-connection": "0.2.2-rc.1",
+    "@deepseek-ai/dsh-client-ui-primitives": "0.2.2-rc.1",
+    "@deepseek-ai/dsh-client-ui-renderer": "0.2.2-rc.1",
+    "@deepseek-ai/dsh-client-ui-settings": "0.2.2-rc.1",
+    "@deepseek-ai/dsh-client-ui-slots": "0.2.2-rc.1",
+    "@deepseek-ai/dsh-home-paths": "0.2.2-rc.1",
+    "@deepseek-ai/dsh-host-webserver": "0.2.2-rc.1",
+    "@deepseek-ai/dsh-llm": "0.2.2-rc.1",
+    "@deepseek-ai/dsh-timeout": "0.2.2-rc.1",
     "react": "^18.3.1",
-    "@deepseek-ai/dsh-web": "0.2.1-rc.5",
-    "@deepseek-ai/dsh-agent": "0.2.1-rc.5",
-    "@deepseek-ai/schemastery": "3.18.5"
+    "@deepseek-ai/dsh-web": "0.2.2-rc.1",
+    "@deepseek-ai/dsh-agent": "0.2.2-rc.1",
+    "@deepseek-ai/schemastery": "3.19.0"
   },
   "peerDependenciesMeta": {
     "@deepseek-ai/cordis": {
@@ -97,6 +100,9 @@
       "optional": true
     },
     "@deepseek-ai/dsh-client-locale": {
+      "optional": true
+    },
+    "@deepseek-ai/dsh-client-connection": {
       "optional": true
     },
     "@deepseek-ai/dsh-client-ui-primitives": {
@@ -137,26 +143,27 @@
     }
   },
   "devDependencies": {
-    "@deepseek-ai/cordis": "4.0.5",
-    "@deepseek-ai/dsh-attachment": "0.2.1-rc.5",
-    "@deepseek-ai/dsh-client-locale": "0.2.1-rc.5",
-    "@deepseek-ai/dsh-client-ui-primitives": "0.2.1-rc.5",
-    "@deepseek-ai/dsh-client-ui-renderer": "0.2.1-rc.5",
-    "@deepseek-ai/dsh-client-ui-settings": "0.2.1-rc.5",
-    "@deepseek-ai/dsh-client-ui-slots": "0.2.1-rc.5",
-    "@deepseek-ai/dsh-home-paths": "0.2.1-rc.5",
-    "@deepseek-ai/dsh-host-webserver": "0.2.1-rc.5",
-    "@deepseek-ai/dsh-llm": "0.2.1-rc.5",
-    "@deepseek-ai/dsh-timeout": "0.2.1-rc.5",
+    "@deepseek-ai/cordis": "4.1.0",
+    "@deepseek-ai/dsh-attachment": "0.2.2-rc.1",
+    "@deepseek-ai/dsh-client-locale": "0.2.2-rc.1",
+    "@deepseek-ai/dsh-client-connection": "0.2.2-rc.1",
+    "@deepseek-ai/dsh-client-ui-primitives": "0.2.2-rc.1",
+    "@deepseek-ai/dsh-client-ui-renderer": "0.2.2-rc.1",
+    "@deepseek-ai/dsh-client-ui-settings": "0.2.2-rc.1",
+    "@deepseek-ai/dsh-client-ui-slots": "0.2.2-rc.1",
+    "@deepseek-ai/dsh-home-paths": "0.2.2-rc.1",
+    "@deepseek-ai/dsh-host-webserver": "0.2.2-rc.1",
+    "@deepseek-ai/dsh-llm": "0.2.2-rc.1",
+    "@deepseek-ai/dsh-timeout": "0.2.2-rc.1",
     "@types/node": "22.20.0",
     "@types/proper-lockfile": "4.1.4",
     "@types/react": "18.3.28",
     "react": "18.3.1",
     "tsdown": "0.22.2",
     "typescript": "5.9.2",
-    "@deepseek-ai/dsh-web": "0.2.1-rc.5",
-    "@deepseek-ai/dsh-agent": "0.2.1-rc.5",
-    "@deepseek-ai/schemastery": "3.18.5"
+    "@deepseek-ai/dsh-web": "0.2.2-rc.1",
+    "@deepseek-ai/dsh-agent": "0.2.2-rc.1",
+    "@deepseek-ai/schemastery": "3.19.0"
   },
   "packageManager": "pnpm@11.1.3"
 }

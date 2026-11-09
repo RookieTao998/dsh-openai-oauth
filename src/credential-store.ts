@@ -8,8 +8,9 @@ import {
   rename,
   unlink,
 } from 'node:fs/promises'
-import { join, resolve } from 'node:path'
+import { dirname, join, resolve } from 'node:path'
 import lockfile from 'proper-lockfile'
+import { windowsPrivateAccess } from './credential-access.js'
 import type {
   CredentialInfo,
   CredentialStore,
@@ -51,6 +52,13 @@ function unsafePath(): CredentialStoreError {
   return new CredentialStoreError(
     'UNSAFE_CREDENTIAL_PATH',
     'OpenAI Codex credential storage uses an unsafe path; replace links with owner-only directories and retry.',
+  )
+}
+
+function unsafePermissions(): CredentialStoreError {
+  return new CredentialStoreError(
+    'UNSAFE_CREDENTIAL_PERMISSIONS',
+    'OpenAI Codex credential file permissions are unsafe; restrict the file to its owner and retry.',
   )
 }
 
@@ -132,40 +140,63 @@ export class SecureCredentialStore implements CredentialStore {
     this.credentialFile = join(this.stateDirectory, CREDENTIAL_FILE_NAME)
   }
 
-  private async assertDirectory(path: string, create: boolean): Promise<void> {
+  private async assertDirectory(path: string, create: boolean, owned = false): Promise<void> {
     let info
+    let created = false
     try {
       info = await lstat(path)
     } catch (error) {
       if (!isMissing(error) || !create) throw error
-      await mkdir(path, { recursive: true, mode: 0o700 })
+      created = await mkdir(path, { recursive: true, mode: 0o700 }) !== undefined
       info = await lstat(path)
     }
     if (info.isSymbolicLink() || !info.isDirectory()) throw unsafePath()
-    await chmod(path, 0o700)
+    if (process.platform === 'win32') {
+      // Do not repair an existing directory: inheritable ACL changes can also
+      // repair an unsafe credential file before its permissions are checked.
+      if (owned && !await windowsPrivateAccess(path, 'directory', created)) throw unsafePermissions()
+    } else {
+      await chmod(path, 0o700)
+    }
   }
 
   private async ensureStateDirectory(): Promise<void> {
+    // Reject junctions in ancestors before creating or protecting plugin state.
+    if (process.platform === 'win32') {
+      let ancestor = resolve(this.dshHome)
+      while (true) {
+        const info = await lstat(ancestor).catch((error: unknown) => {
+          if (isMissing(error)) return undefined
+          throw error
+        })
+        if (info !== undefined && (info.isSymbolicLink() || !info.isDirectory())) throw unsafePath()
+        const parent = dirname(ancestor)
+        if (parent === ancestor) break
+        ancestor = parent
+      }
+    }
     await mkdir(this.dshHome, { recursive: true, mode: 0o700 })
     const plugins = resolve(this.dshHome, 'plugins')
     await this.assertDirectory(plugins, true)
-    await this.assertDirectory(this.stateDirectory, true)
+    await this.assertDirectory(this.stateDirectory, true, true)
+  }
+
+  private async assertCredentialFile(path: string): Promise<void> {
+    const info = await lstat(path)
+    if (info.isSymbolicLink() || !info.isFile() || info.nlink !== 1) throw unsafePath()
+    if (process.platform === 'win32') {
+      if (!await windowsPrivateAccess(path, 'file', false)) throw unsafePermissions()
+    } else if ((info.mode & 0o077) !== 0) {
+      throw unsafePermissions()
+    }
   }
 
   private async readEnvelope(): Promise<CredentialEnvelope | undefined> {
-    let info
     try {
-      info = await lstat(this.credentialFile)
+      await this.assertCredentialFile(this.credentialFile)
     } catch (error) {
       if (isMissing(error)) return undefined
       throw error
-    }
-    if (info.isSymbolicLink() || !info.isFile()) throw unsafePath()
-    if ((info.mode & 0o077) !== 0) {
-      throw new CredentialStoreError(
-        'UNSAFE_CREDENTIAL_PERMISSIONS',
-        'OpenAI Codex credential file permissions are unsafe; restrict the file to its owner and retry.',
-      )
     }
     return parseEnvelope(await readFile(this.credentialFile, 'utf8'))
   }
@@ -176,7 +207,8 @@ export class SecureCredentialStore implements CredentialStore {
       realpath: false,
       stale: 30_000,
       update: 10_000,
-      retries: { retries: 80, factor: 1.15, minTimeout: 10, maxTimeout: 150 },
+      // Windows ACL subprocesses take longer than POSIX permission checks.
+      retries: { retries: process.platform === 'win32' ? 400 : 80, factor: 1.15, minTimeout: 10, maxTimeout: 150 },
     })
     try {
       return await operation()
@@ -194,12 +226,13 @@ export class SecureCredentialStore implements CredentialStore {
     let handle
     try {
       handle = await open(temporary, 'wx', 0o600)
+      if (process.platform === 'win32' && !await windowsPrivateAccess(temporary, 'file', true)) throw unsafePermissions()
       await handle.writeFile(`${JSON.stringify(envelope, null, 2)}\n`, 'utf8')
       await handle.sync()
       await handle.close()
       handle = undefined
       await rename(temporary, this.credentialFile)
-      await chmod(this.credentialFile, 0o600)
+      if (process.platform !== 'win32') await chmod(this.credentialFile, 0o600)
       if (process.platform !== 'win32') {
         const directory = await open(this.stateDirectory, 'r')
         try {
@@ -255,7 +288,7 @@ export class SecureCredentialStore implements CredentialStore {
         throw error
       })
       if (info === undefined) return
-      if (info.isSymbolicLink() || !info.isFile()) throw unsafePath()
+      await this.assertCredentialFile(this.credentialFile)
       await unlink(this.credentialFile)
     })
   }

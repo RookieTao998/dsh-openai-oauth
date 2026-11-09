@@ -13,7 +13,7 @@ Sign in to ChatGPT from DeepSeek Harness and use available Codex models without 
 ## Features
 
 - Browser login with PKCE or Device Code login
-- Web settings and a headless login command
+- Desktop and Web settings, and a headless login command
 - Automatic token refresh
 - Models and reasoning levels discovered from the signed-in account’s Codex catalog
 - Codex native web search through ChatGPT OAuth, without a DeepSeek API key
@@ -21,12 +21,11 @@ Sign in to ChatGPT from DeepSeek Harness and use available Codex models without 
 
 ## Requirements
 
-- DeepSeek Harness `0.2.1-rc.5`
-- Node.js `^22.19.0` or `>=24.0.0`
-- `pnpm` on `PATH`
+- DeepSeek Harness or DSH Desktop `0.2.2-rc.1`
+- For Web/headless or source builds: Node.js `^22.19.0` or `>=24.0.0`, and `pnpm` on `PATH`
 - A ChatGPT account with Codex access
 
-Version `0.3.0` supports macOS and Linux. Windows support is not included yet.
+Version `0.4.0` targets Windows DSH Desktop as well as local Web and headless use on macOS and Linux. Real Desktop and OAuth acceptance has not yet been completed; see the manual checks below.
 
 When upgrading from plugin `0.1.x`, upgrade DSH first, reinstall the plugin, then restart DSH. Saved OAuth credentials remain in the same location.
 
@@ -34,32 +33,41 @@ When upgrading from plugin `0.1.x`, upgrade DSH first, reinstall the plugin, the
 
 ### Install with an Agent (recommended)
 
-Give this address to an Agent and ask it to follow the runbook:
-
-`https://raw.githubusercontent.com/AdonisSheldon/dsh-openai-oauth/main/AGENTS.md`
+Give an Agent this checkout's [AGENTS.md](AGENTS.md) and the built plugin package path, and ask it to follow the runbook.
 
 When it finishes, you only need to approve any DSH restart and complete the ChatGPT login yourself.
 
-### Install with DSH
+### Install in Windows DSH Desktop
+
+Desktop includes its Node and pnpm runtime. Start Desktop once to initialize its profile. Use the application menu's **Manage dsh Command…** to install the command, open a new terminal, and confirm `dsh --version` is `0.2.2-rc.1`. Quit Desktop through its tray menu; closing the window keeps it running. From this project's root, install the locally built package:
+
+```powershell
+dsh plugin --profile desktop add .\artifacts\dsh-openai-oauth-0.4.0.tgz
+dsh plugin --profile desktop list
+```
+
+You can also install through Desktop’s Plugins UI. Do not use an ordinary npm-installed `dsh` to manage the Desktop profile; check the command's actual location in its management dialog. Reopen Desktop to load the plugin. Version `0.4.0` has not been published to npm; use the local archive.
+
+### Install with DSH Web
 
 After the package is published:
 
 ```sh
-dsh plugin --profile web add dsh-openai-oauth@0.3.0
+dsh plugin --profile web add dsh-openai-oauth@0.4.0
 dsh --profile web --dump-config
 ```
 
-### Install from the current checkout
+### Install Web from the current checkout
 
 ```sh
 pnpm install --frozen-lockfile
 pnpm run check
 pnpm pack
-dsh plugin --profile web add ./dsh-openai-oauth-0.3.0.tgz
+dsh plugin --profile web add ./dsh-openai-oauth-0.4.0.tgz
 dsh --profile web --dump-config
 ```
 
-Restart a running DSH Web process after installation.
+These Web commands use the `web` profile. Restart a running DSH Web process after installation.
 
 ## Login and use
 
@@ -73,11 +81,15 @@ Browser login waits for a callback on `127.0.0.1:1455`. Use Device Code when tha
 For a headless profile:
 
 ```sh
-dsh plugin --profile headless add ./dsh-openai-oauth-0.3.0.tgz
+dsh plugin --profile headless add ./dsh-openai-oauth-0.4.0.tgz
 dsh plugin --profile headless exec dsh-openai-login
 ```
 
 The command asks which login method to use. Non-interactive terminals must pass `--browser` or `--device-code`.
+
+## Manual Desktop acceptance
+
+On Windows with DSH Desktop `0.2.2-rc.1`, install as above and check that Settings → OpenAI OAuth opens. Complete Browser login yourself, verify cancellation and Device Code login, then restart Desktop and verify the sign-in persists. Exercise token refresh, select a Codex model, send a request, and try web search. These checks require a real account and have not yet been completed. Never share credentials or authorization callbacks when reporting results.
 
 ## Web search
 
@@ -98,6 +110,8 @@ Search follows the initiating Session's selected Codex model. Other model routes
 
 ## Update and uninstall
 
+For Desktop, use its Plugins UI or its bundled `dsh` with `--profile desktop`. For Web:
+
 ```sh
 dsh plugin --profile web update dsh-openai-oauth
 dsh plugin --profile web remove dsh-openai-oauth
@@ -111,7 +125,7 @@ Sign out in **Settings → OpenAI OAuth** before uninstalling if the stored cred
 
 - This connects a ChatGPT account to the Codex model provider; it does not create an OpenAI API key.
 - The Web integration supports only a local DSH Host bound to `127.0.0.1`.
-- Credentials are stored unencrypted at `$DSH_HOME/plugins/dsh-openai-oauth/credentials.json`.
+- Credentials are stored in plaintext at `$DSH_HOME/plugins/dsh-openai-oauth/credentials.json`, protected by current-user ACLs on Windows and owner-only filesystem modes on POSIX. They are not protected by DPAPI.
 - Model availability and quota depend on the signed-in account.
 - OpenAI may change the Codex OAuth protocol independently of this plugin.
 - This is an unofficial community project and is not affiliated with or endorsed by OpenAI or DeepSeek AI.

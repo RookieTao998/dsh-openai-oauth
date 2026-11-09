@@ -1,9 +1,10 @@
 import z from "@deepseek-ai/schemastery";
 import { GenerateOptions, LlmAdapter, LlmModelInfo, LlmProviderInfo, LlmResolvedModelInfo, StreamChunk } from "@deepseek-ai/dsh-llm";
 import { Context, Volatile } from "@deepseek-ai/cordis";
-import { WebServer } from "@deepseek-ai/dsh-host-webserver";
+import { WebRoute, WebServer } from "@deepseek-ai/dsh-host-webserver";
 import { AttachmentStore } from "@deepseek-ai/dsh-attachment";
 import { WebSearchProvider, WebSearchRequest, WebSearchResult } from "@deepseek-ai/dsh-web";
+import { ConnectionRpcHandler, HostConnectionHandle } from "@deepseek-ai/dsh-client-connection";
 
 //#region src/models.d.ts
 /** Reasoning levels accepted by OpenAI Codex models. */
@@ -429,6 +430,7 @@ declare class SecureCredentialStore implements CredentialStore {
   constructor(dshHome: string);
   private assertDirectory;
   private ensureStateDirectory;
+  private assertCredentialFile;
   private readEnvelope;
   private withLock;
   private writeCredential;
@@ -459,6 +461,14 @@ declare function createOpenAiOAuth(options?: OpenAiOAuthOptions): OpenAiOAuth;
 //#region src/protocol.d.ts
 /** Exact local route family owned by this plugin. */
 declare const OAUTH_ROUTE_PATH = "/api/plugins/openai-oauth";
+//#endregion
+//#region src/oauth-rpc.d.ts
+declare const OAUTH_RPC_CHANNEL = "/openai-oauth";
+type OAuthController = Pick<AuthController, 'status' | 'start' | 'cancel' | 'logout'>;
+/** Private carrier-neutral OAuth controls; authorization precedes every controller access. */
+declare function createOAuthRpcHandler(controller: OAuthController): ConnectionRpcHandler;
+/** Authenticate through Connection while exposing the same bounded RPC wire to its public client. */
+declare function oauthRpcRoute(controller: OAuthController, connection: Pick<HostConnectionHandle, 'admit'>): WebRoute;
 //#endregion
 //#region src/index.d.ts
 /** Cordis plugin identity. */
@@ -497,4 +507,4 @@ declare function assertLocalWebHost(host: WebServer['host']): void;
 /** Register the direct adapter and activate the local route whenever a Web Host is present. */
 declare function apply(ctx: Context, config: Config): void;
 //#endregion
-export { AuthController, AuthControllerError, type AuthStatus, CODEX_SEARCH_PROVIDER, CodexSearchProvider, Config, CreatePluginRuntimeOptions, CredentialStoreError, type LoginMethod, OAUTH_ROUTE_PATH, OPENAI_CODEX_PROVIDER, OpenAiCodexAdapter, type OpenAiCodexAdapterOptions, type OpenAiCodexModels, type PendingStatus, PluginRuntime, SecureCredentialStore, apply, assertLocalWebHost, createOpenAiOAuth, createPluginRuntime, inject, name };
+export { AuthController, AuthControllerError, type AuthStatus, CODEX_SEARCH_PROVIDER, CodexSearchProvider, Config, CreatePluginRuntimeOptions, CredentialStoreError, type LoginMethod, OAUTH_ROUTE_PATH, OAUTH_RPC_CHANNEL, OPENAI_CODEX_PROVIDER, OpenAiCodexAdapter, type OpenAiCodexAdapterOptions, type OpenAiCodexModels, type PendingStatus, PluginRuntime, SecureCredentialStore, apply, assertLocalWebHost, createOAuthRpcHandler, createOpenAiOAuth, createPluginRuntime, inject, name, oauthRpcRoute };

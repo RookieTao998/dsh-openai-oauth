@@ -4,6 +4,7 @@ import type { Volatile } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
 import type {} from '@deepseek-ai/dsh-agent'
 import type {} from '@deepseek-ai/dsh-web'
+import type {} from '@deepseek-ai/dsh-client-connection'
 import { LlmError } from '@deepseek-ai/dsh-llm'
 import { resolveDshHome } from '@deepseek-ai/dsh-home-paths'
 import type { WebServer } from '@deepseek-ai/dsh-host-webserver'
@@ -15,6 +16,7 @@ import { CodexModels } from './codex-models.js'
 import { OPENAI_CODEX_PROVIDER, SecureCredentialStore } from './credential-store.js'
 import { createOpenAiOAuth } from './openai-oauth.js'
 import { oauthRoute } from './oauth-http.js'
+import { oauthRpcRoute } from './oauth-rpc.js'
 import { CodexSearchProvider } from './native-search.js'
 import type { AuthInteraction, OAuthCredential } from './oauth-types.js'
 
@@ -25,6 +27,7 @@ export type { AuthStatus, LoginMethod, PendingStatus } from './auth-controller.j
 export { CredentialStoreError, OPENAI_CODEX_PROVIDER, SecureCredentialStore } from './credential-store.js'
 export { createOpenAiOAuth } from './openai-oauth.js'
 export { OAUTH_ROUTE_PATH } from './oauth-http.js'
+export { createOAuthRpcHandler, OAUTH_RPC_CHANNEL, oauthRpcRoute } from './oauth-rpc.js'
 export { CODEX_SEARCH_PROVIDER, CodexSearchProvider } from './native-search.js'
 
 /** Cordis plugin identity. */
@@ -101,5 +104,12 @@ export function apply(ctx: Context, config: Config): void {
   ctx.inject(['webServer'], (routeCtx) => {
     assertLocalWebHost(routeCtx.webServer.host)
     return routeCtx.webServer.register(oauthRoute(runtime.controller))
+  })
+  ctx.inject(['connection', 'webServer'], connectionCtx => {
+    assertLocalWebHost(connectionCtx.webServer.host)
+    // DSH 0.2.2-rc.1 rpc.handle lacks its provider's webServer injection:
+    // https://github.com/deepseek-ai/deepseek-harness/blob/66491b05e3f05ad35bcdd4f6cd7ed26041d9e3db/packages/client/connection/src/rpc-host.ts
+    // Remove this wire adapter when the supported Host fixes that registration.
+    return connectionCtx.webServer.register(oauthRpcRoute(runtime.controller, connectionCtx.connection))
   })
 }

@@ -14,7 +14,7 @@ export interface OAuthHttpController {
   logout(): Promise<AuthStatus>
 }
 
-class HttpError extends Error {
+export class HttpError extends Error {
   constructor(
     readonly status: number,
     readonly code: string,
@@ -61,7 +61,7 @@ function mutationTrusted(req: IncomingMessage, host: URL): boolean {
   }
 }
 
-function writeJson(res: ServerResponse, status: number, body: unknown, headers: Record<string, string> = {}): void {
+export function writeJson(res: ServerResponse, status: number, body: unknown, headers: Record<string, string> = {}): void {
   res.writeHead(status, {
     'content-type': 'application/json; charset=utf-8',
     'cache-control': 'no-store',
@@ -98,7 +98,7 @@ function contentTypeIsJson(req: IncomingMessage): boolean {
   return header.split(';', 1)[0]?.trim().toLowerCase() === 'application/json'
 }
 
-async function readJson(req: IncomingMessage): Promise<Record<string, unknown>> {
+export async function readJson(req: IncomingMessage): Promise<Record<string, unknown>> {
   if (!contentTypeIsJson(req)) {
     throw new HttpError(415, 'UNSUPPORTED_MEDIA_TYPE', 'OAuth mutations require application/json.')
   }

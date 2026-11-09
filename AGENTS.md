@@ -1,13 +1,13 @@
 # dsh-openai-oauth Agent installation runbook
 
-Follow this runbook to add the standalone `dsh-openai-oauth` package to an existing DeepSeek Harness installation. The default destination is the `web` profile; use a different profile only when the user names one.
+Follow this runbook to add the standalone `dsh-openai-oauth` package to an existing DeepSeek Harness installation. For DSH Desktop, use its `desktop` profile. For other installations, default to `web` unless the user names a different profile.
 
 ## Expected result
 
 The task is complete when all of the following are true:
 
 - the requested profile contains one `dsh-openai-oauth` installation;
-- the composed DSH configuration includes the plugin;
+- registration is confirmed in the intended profile;
 - the composed `web` configuration selects `openai-codex-search`, unless the user explicitly configured another search provider;
 - no Harness source file, other plugin, or other profile was changed;
 - the user knows whether DSH must be restarted and where to finish OAuth login.
@@ -24,25 +24,33 @@ The task is complete when all of the following are true:
 
 Confirm these prerequisites before making changes:
 
-- macOS or Linux;
-- DeepSeek Harness `0.2.1-rc.5`;
-- Node.js `^22.19.0` or `>=24.0.0`;
-- `pnpm` available on `PATH`.
+- Windows DSH Desktop, or macOS/Linux local Web or headless;
+- DeepSeek Harness or DSH Desktop `0.2.2-rc.1`;
+- for non-Desktop installations and source builds, Node.js `^22.19.0` or `>=24.0.0` and `pnpm` on `PATH`. Desktop supplies its own runtime.
 
-Inspect the Node.js and pnpm versions and locate a usable DSH command. Prefer a globally available `dsh`. When operating inside a DeepSeek Harness source checkout, use `pnpm dsh` for every DSH invocation. Report an unsupported platform or version instead of attempting to alter Harness for compatibility.
+For non-Desktop installations, inspect Node.js and pnpm versions and locate a usable DSH command. Prefer a globally available `dsh`; inside a DeepSeek Harness source checkout, use `pnpm dsh` for every DSH invocation. For Desktop, locate its bundled `dsh`; an ordinary npm-installed `dsh` cannot manage the Desktop profile. Report an unsupported platform or version instead of altering Harness for compatibility.
 
 ## Registration and inspection
 
-For the default `web` profile, run:
+For Windows DSH Desktop, first confirm the profile has been initialized by launching Desktop once. Its application menu's **Manage dsh Command…** installs the bundled command and shows its actual path; open a fresh terminal and verify its version. Ask before stopping a running instance, and use the tray's Quit command rather than closing its window. Use its Plugins UI or its bundled `dsh` to install the locally built `0.4.0` archive into `desktop`; this version has not been published to npm. From this checkout:
+
+```powershell
+dsh plugin --profile desktop add .\artifacts\dsh-openai-oauth-0.4.0.tgz
+dsh plugin --profile desktop list
+```
+
+Confirm the command is Desktop-owned rather than relying on its name on PATH. Do not boot the Desktop profile using ordinary npm-installed DSH. Reopen Desktop to load the plugin only with the user’s approval.
+
+For the default non-Desktop `web` profile, install the corresponding local archive (or a published package once available):
 
 ```sh
-dsh plugin --profile web add github:AdonisSheldon/dsh-openai-oauth
+dsh plugin --profile web add ./artifacts/dsh-openai-oauth-0.4.0.tgz
 dsh --profile web --dump-config
 ```
 
-Substitute the user-selected profile when necessary. Substitute `pnpm dsh` for `dsh` when using the source-checkout launcher. When the user specifies a tag or commit, add `#<tag-or-commit>` to the GitHub package reference.
+Substitute the user-selected profile when necessary. Substitute `pnpm dsh` for `dsh` when using the source-checkout launcher. When the user specifies a tag or commit, use the corresponding GitHub package reference with `#<tag-or-commit>`.
 
-Inspect the resulting configuration and confirm that `dsh-openai-oauth` occurs once. Do not count a partial download or a package-manager entry as successful registration.
+Inspect the Desktop plugin list or the non-Desktop composed configuration and confirm that `dsh-openai-oauth` occurs once. Do not count a partial download or a package-manager entry as successful registration.
 
 The plugin's bundle also selects Codex native web search. It requires ChatGPT sign-in, uses the account's quota, and needs no DeepSeek API key. Preserve an explicit user override of the search provider.
 
@@ -50,9 +58,9 @@ The plugin's bundle also selects Codex native web search. It requires ChatGPT si
 
 If port `3080` already belongs to a running DSH Web instance, do not launch another instance. Installation requires one DSH restart to load the new plugin; perform it only with the user's approval.
 
-After DSH reloads, direct the user to **Settings -> OpenAI OAuth**. They can choose **Browser login** or **Device Code** and then authenticate their own ChatGPT account.
+After Desktop reopens or DSH reloads, direct the user to **Settings -> OpenAI OAuth**. They can choose **Browser login** or **Device Code** and then authenticate their own ChatGPT account.
 
-Report the profile, package reference, configuration-check result, and restart status.
+Report the profile, package reference, registration-check result, and restart status. Real Desktop and OAuth acceptance remains unverified; do not claim live validation from registration alone.
 
 ## Unsuccessful installation
 

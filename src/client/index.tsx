@@ -1,17 +1,22 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { CSSProperties, ReactNode } from 'react'
-import type { Context as ClientContext } from '@deepseek-ai/cordis'
+import type { Context } from '@deepseek-ai/cordis'
+import type { ConnectionHandle } from '@deepseek-ai/dsh-client-connection/client'
 import { Button, writeClipboard } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { SettingsSectionOwnerProps } from '@deepseek-ai/dsh-client-ui-settings/client'
 import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
 import type {} from '@deepseek-ai/dsh-client-locale/client'
 import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
 import type { AuthStatus, LoginMethod, PendingStatus } from '../auth-controller.js'
-import { OAUTH_ROUTE_PATH } from '../protocol.js'
 import { en, zh, type OAuthLocaleKey } from './locales.js'
+import { createOAuthRequest, openAuthorizationUrl, trustedAuthorizationUrl, type OAuthRequest } from './transport.js'
+
+// Host and renderer share Cordis declarations, but install different Connection faces.
+type ClientContext = Omit<Context, 'connection'> & { connection: ConnectionHandle }
 
 export interface OpenAiOAuthSectionInjected {
   t: (key: OAuthLocaleKey, params?: Record<string, string | number>) => string
+  request: OAuthRequest
 }
 
 export type OpenAiOAuthSectionProps = SettingsSectionOwnerProps & OpenAiOAuthSectionInjected
@@ -50,42 +55,8 @@ const styles: Record<string, CSSProperties> = {
   secondary: { color: 'var(--dsw-alias-label-tertiary)', fontSize: 12, lineHeight: '18px', margin: '6px 0 0' },
 }
 
-async function hostRequest<T>(path: string, body?: unknown): Promise<T> {
-  const response = await fetch(`${OAUTH_ROUTE_PATH}${path}`, {
-    method: body === undefined ? 'GET' : 'POST',
-    credentials: 'same-origin',
-    headers: {
-      accept: 'application/json',
-      ...body === undefined ? {} : { 'content-type': 'application/json' },
-    },
-    ...body === undefined ? {} : { body: JSON.stringify(body) },
-  })
-  const value: unknown = await response.json().catch(() => undefined)
-  if (!response.ok) {
-    const message = typeof value === 'object' && value !== null
-      && 'error' in value && typeof value.error === 'object' && value.error !== null
-      && 'message' in value.error && typeof value.error.message === 'string'
-      ? value.error.message
-      : undefined
-    throw new Error(message ?? 'The local Harness Host did not complete the OAuth request.')
-  }
-  return value as T
-}
-
-function trustedAuthorizationUrl(raw: string): string | undefined {
-  try {
-    const url = new URL(raw)
-    return url.protocol === 'https:' && url.hostname === 'auth.openai.com'
-      && url.username.length === 0 && url.password.length === 0
-      ? url.toString()
-      : undefined
-  } catch {
-    return undefined
-  }
-}
-
 /** Dedicated settings section for the plugin-owned OAuth state machine. */
-export function OpenAiOAuthSection({ t }: OpenAiOAuthSectionProps): ReactNode {
+export function OpenAiOAuthSection({ t, request }: OpenAiOAuthSectionProps): ReactNode {
   const [status, setStatus] = useState<AuthStatus>()
   const [method, setMethod] = useState<LoginMethod>('browser')
   const [busy, setBusy] = useState(false)
@@ -94,12 +65,12 @@ export function OpenAiOAuthSection({ t }: OpenAiOAuthSectionProps): ReactNode {
 
   const refresh = useCallback(async (): Promise<void> => {
     try {
-      setStatus(await hostRequest<AuthStatus>('/status'))
+      setStatus(await request<AuthStatus>('status'))
       setError(undefined)
     } catch {
       setError(t('requestFailed'))
     }
-  }, [t])
+  }, [t, request])
 
   useEffect(() => { void refresh() }, [refresh])
   useEffect(() => {
@@ -109,20 +80,15 @@ export function OpenAiOAuthSection({ t }: OpenAiOAuthSectionProps): ReactNode {
   }, [refresh, status])
 
   const start = async (): Promise<void> => {
-    const popup = (method === 'browser' ? window.open('about:blank', '_blank') : null) ?? null
-    if (popup !== null) popup.opener = null
     setBusy(true)
     setError(undefined)
     try {
-      const pending = await hostRequest<PendingStatus>('/start', { method })
+      const pending = await request<PendingStatus>('start', { method })
       setStatus(pending)
       if (pending.method === 'browser') {
-        const url = trustedAuthorizationUrl(pending.browser.authorizationUrl)
-        if (url === undefined) throw new Error(t('requestFailed'))
-        if (popup !== null) popup.location.href = url
+        openAuthorizationUrl(pending.browser.authorizationUrl, window.open.bind(window))
       }
     } catch (reason) {
-      popup?.close()
       setError(reason instanceof Error ? reason.message : t('requestFailed'))
     } finally {
       setBusy(false)
@@ -134,7 +100,7 @@ export function OpenAiOAuthSection({ t }: OpenAiOAuthSectionProps): ReactNode {
     setBusy(true)
     setError(undefined)
     try {
-      setStatus(await hostRequest<AuthStatus>('/cancel', { attemptId: status.attemptId }))
+      setStatus(await request<AuthStatus>('cancel', { attemptId: status.attemptId }))
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : t('requestFailed'))
     } finally {
@@ -146,7 +112,7 @@ export function OpenAiOAuthSection({ t }: OpenAiOAuthSectionProps): ReactNode {
     setBusy(true)
     setError(undefined)
     try {
-      setStatus(await hostRequest<AuthStatus>('/logout', {}))
+      setStatus(await request<AuthStatus>('logout'))
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : t('requestFailed'))
     } finally {
@@ -225,7 +191,7 @@ export function OpenAiOAuthSection({ t }: OpenAiOAuthSectionProps): ReactNode {
                   </div>
                 </div>
                 <div style={styles.pendingActions}>
-                  <a style={styles.primaryLink} href={status.browser.authorizationUrl} target="_blank" rel="noreferrer">
+                  <a style={styles.primaryLink} href={trustedAuthorizationUrl(status.browser.authorizationUrl)} target="_blank" rel="noopener noreferrer">
                     {t('continueBrowser')} <span aria-hidden="true">↗</span>
                   </a>
                   <Button variant="ghost" disabled={busy} onClick={() => { void cancel() }}>{t('cancel')}</Button>
@@ -255,7 +221,7 @@ export function OpenAiOAuthSection({ t }: OpenAiOAuthSectionProps): ReactNode {
                   </div>
                 </div>
                 <div style={styles.pendingActions}>
-                  <a style={styles.primaryLink} href={status.deviceCode.verificationUri} target="_blank" rel="noreferrer">
+                  <a style={styles.primaryLink} href={trustedAuthorizationUrl(status.deviceCode.verificationUri)} target="_blank" rel="noopener noreferrer">
                     {t('openVerification')} <span aria-hidden="true">↗</span>
                   </a>
                   <Button variant="ghost" disabled={busy} onClick={() => { void cancel() }}>{t('cancel')}</Button>
@@ -282,17 +248,18 @@ export function OpenAiOAuthSection({ t }: OpenAiOAuthSectionProps): ReactNode {
 }
 
 const NS = 'settings.openai-oauth'
-export const inject = ['slots', 'locale']
+export const inject = ['slots', 'locale', 'connection']
 
 /** Register bilingual copy and the dedicated settings page. */
 export function apply(ctx: ClientContext): void {
   ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'openai-oauth: client copy')
   const t = ctx.locale.bind(NS)
+  const request = createOAuthRequest((channel, endpoint, payload) => ctx.connection.rpc.call(channel, endpoint, payload))
   ctx.slots.inject('settings.section', () => ctx.slots.register({
     name: 'settings.section',
     id: 'openai-oauth',
     order: 11,
     label: () => t('nav'),
-    inject: () => ({ t }),
+    inject: () => ({ t, request }),
   }, OpenAiOAuthSection))
 }
