@@ -108,7 +108,6 @@ interface CodexContext {
 }
 interface ModelsSimpleStreamOptions {
   reasoning?: ThinkingLevel;
-  temperature?: number;
   sessionId?: string;
   signal?: AbortSignal;
   maxRetries?: number;

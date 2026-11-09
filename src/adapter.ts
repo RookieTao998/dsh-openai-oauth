@@ -152,9 +152,9 @@ export class OpenAiCodexAdapter extends LlmAdapter {
     let exhausted = false
     try {
       const context = await toCodexContext(options, containsImage ? this.options.attachments?.() : undefined)
+      // Codex controls sampling; even DSH auto-review's temperature: 0 must be omitted.
       const events = this.models.streamSimple(model, context, {
         ...reasoning === undefined ? {} : { reasoning },
-        ...options.temperature === undefined ? {} : { temperature: options.temperature },
         ...options.sessionId === undefined ? {} : { sessionId: String(options.sessionId) },
         signal,
         maxRetries: 0,

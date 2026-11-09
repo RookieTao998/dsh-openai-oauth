@@ -147,7 +147,6 @@ function requestBody(model: Model, context: CodexContext, options: ModelsSimpleS
     parallel_tool_calls: true,
   }
   if (options.sessionId !== undefined) body['prompt_cache_key'] = options.sessionId
-  if (options.temperature !== undefined) body['temperature'] = options.temperature
   if (context.tools !== undefined && context.tools.length > 0) {
     body['tools'] = context.tools.map(tool => ({
       type: 'function', name: tool.name, description: tool.description,
