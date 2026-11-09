@@ -57,7 +57,7 @@
     "build": "tsdown",
     "check": "pnpm run typecheck && pnpm run build",
     "typecheck": "tsc --noEmit",
-    "test": "node --test --test-concurrency=1 checks/credential-store.mjs checks/credential-access.mjs checks/oauth-rpc.mjs checks/oauth-rpc-http.mjs checks/oauth-client.mjs checks/openai-oauth.mjs checks/codex-requests.mjs"
+    "test": "node --test --test-concurrency=1 checks/credential-store.mjs checks/credential-access.mjs checks/oauth-rpc.mjs checks/oauth-rpc-http.mjs checks/oauth-client.mjs checks/openai-oauth.mjs checks/codex-requests.mjs checks/model-selection.mjs"
   },
   "keywords": [
     "dsh-plugin",

@@ -390,7 +390,7 @@ declare class CodexModels {
   constructor(credentials: CredentialStore, options: CodexModelsOptions);
   /** Refresh the account's visible catalog; concurrent requests share one fetch. Signed-out callers get no models. */
   getModels(provider?: string): Promise<readonly Model[]>;
-  /** Resolve metadata from the current account's most recent catalog, fetching it on first use. */
+  /** Resolve advisory metadata from memory; authentication happens when sending requests. */
   getModel(provider: string, id: string): Promise<Model | undefined>;
   private fetchCatalog;
   private credential;

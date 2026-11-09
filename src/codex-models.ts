@@ -257,7 +257,7 @@ type Slot = { kind: 'thinking' | 'text' | 'toolCall'; contentIndex: number; argu
 export class CodexModels {
   private readonly fetch: CodexFetch
   private readonly now: () => number
-  private catalog: { identity: string; models: readonly Model[] } | undefined
+  private catalog: readonly Model[] | undefined
   private pending: { identity: string; promise: Promise<readonly Model[]> } | undefined
 
   /**
@@ -285,7 +285,7 @@ export class CodexModels {
     const promise = this.fetchCatalog(credential).then(async models => {
       const latest = await this.credentials.read(OPENAI_CODEX_PROVIDER)
       if (latest === undefined || latest.accountId !== credential.accountId || latest.access !== credential.access) return []
-      this.catalog = { identity, models }
+      this.catalog = models
       return models
     })
     const pending = { identity, promise }
@@ -297,16 +297,11 @@ export class CodexModels {
     }
   }
 
-  /** Resolve metadata from the current account's most recent catalog, fetching it on first use. */
+  /** Resolve advisory metadata from memory; authentication happens when sending requests. */
   async getModel(provider: string, id: string): Promise<Model | undefined> {
     if (provider !== OPENAI_CODEX_PROVIDER) return undefined
-    const credential = await this.credentials.read(OPENAI_CODEX_PROVIDER)
-    const identity = credential === undefined ? undefined : JSON.stringify([credential.accountId, credential.access])
-    if (identity === undefined || this.catalog?.identity !== identity) await this.getModels(provider)
-    const latest = await this.credentials.read(OPENAI_CODEX_PROVIDER)
-    const latestIdentity = latest === undefined ? undefined : JSON.stringify([latest.accountId, latest.access])
-    return latestIdentity === undefined || this.catalog?.identity !== latestIdentity
-      ? undefined : this.catalog.models.find(model => model.id === id)
+    if (this.catalog === undefined) await this.getModels(provider)
+    return this.catalog?.find(model => model.id === id)
   }
 
   private async fetchCatalog(credential: OAuthCredential): Promise<readonly Model[]> {
