@@ -154,13 +154,13 @@ export class SecureCredentialStore implements CredentialStore {
     if (process.platform === 'win32') {
       // Do not repair an existing directory: inheritable ACL changes can also
       // repair an unsafe credential file before its permissions are checked.
-      if (owned && !await windowsPrivateAccess(path, 'directory', created)) throw unsafePermissions()
+      if (owned) await this.assertWindowsAccess(path, 'directory', created)
     } else {
       await chmod(path, 0o700)
     }
   }
 
-  private async ensureStateDirectory(): Promise<void> {
+  private async ensureParentDirectories(): Promise<void> {
     // Reject junctions in ancestors before creating or protecting plugin state.
     if (process.platform === 'win32') {
       let ancestor = resolve(this.dshHome)
@@ -178,14 +178,24 @@ export class SecureCredentialStore implements CredentialStore {
     await mkdir(this.dshHome, { recursive: true, mode: 0o700 })
     const plugins = resolve(this.dshHome, 'plugins')
     await this.assertDirectory(plugins, true)
-    await this.assertDirectory(this.stateDirectory, true, true)
+  }
+
+  private async assertWindowsAccess(path: string, kind: 'directory' | 'file', protect: boolean): Promise<void> {
+    const result = await windowsPrivateAccess(path, kind, protect)
+    if (result === undefined) {
+      throw new CredentialStoreError(
+        'WINDOWS_CREDENTIAL_CHECK_FAILED',
+        'Windows credential permissions could not be verified. Check Windows PowerShell availability and retry.',
+      )
+    }
+    if (!result) throw unsafePermissions()
   }
 
   private async assertCredentialFile(path: string): Promise<void> {
     const info = await lstat(path)
     if (info.isSymbolicLink() || !info.isFile() || info.nlink !== 1) throw unsafePath()
     if (process.platform === 'win32') {
-      if (!await windowsPrivateAccess(path, 'file', false)) throw unsafePermissions()
+      await this.assertWindowsAccess(path, 'file', false)
     } else if ((info.mode & 0o077) !== 0) {
       throw unsafePermissions()
     }
@@ -202,7 +212,7 @@ export class SecureCredentialStore implements CredentialStore {
   }
 
   private async withLock<T>(operation: () => Promise<T>): Promise<T> {
-    await this.ensureStateDirectory()
+    await this.ensureParentDirectories()
     const release = await lockfile.lock(this.stateDirectory, {
       realpath: false,
       stale: 30_000,
@@ -211,6 +221,8 @@ export class SecureCredentialStore implements CredentialStore {
       retries: { retries: process.platform === 'win32' ? 400 : 80, factor: 1.15, minTimeout: 10, maxTimeout: 150 },
     })
     try {
+      // Publish and verify the private directory under the same cross-process lock.
+      await this.assertDirectory(this.stateDirectory, true, true)
       return await operation()
     } finally {
       await release()
@@ -226,7 +238,7 @@ export class SecureCredentialStore implements CredentialStore {
     let handle
     try {
       handle = await open(temporary, 'wx', 0o600)
-      if (process.platform === 'win32' && !await windowsPrivateAccess(temporary, 'file', true)) throw unsafePermissions()
+      if (process.platform === 'win32') await this.assertWindowsAccess(temporary, 'file', true)
       await handle.writeFile(`${JSON.stringify(envelope, null, 2)}\n`, 'utf8')
       await handle.sync()
       await handle.close()
@@ -253,9 +265,14 @@ export class SecureCredentialStore implements CredentialStore {
 
   async read(providerId: string): Promise<OAuthCredential | undefined> {
     if (providerId !== OPENAI_CODEX_PROVIDER) return undefined
-    await this.ensureStateDirectory()
-    const stored = (await this.readEnvelope())?.credentials[OPENAI_CODEX_PROVIDER]
-    return stored === undefined ? undefined : cloneCredential(stored)
+    const read = async (): Promise<OAuthCredential | undefined> => {
+      const stored = (await this.readEnvelope())?.credentials[OPENAI_CODEX_PROVIDER]
+      return stored === undefined ? undefined : cloneCredential(stored)
+    }
+    if (process.platform === 'win32') return this.withLock(read)
+    await this.ensureParentDirectories()
+    await this.assertDirectory(this.stateDirectory, true, true)
+    return read()
   }
 
   async list(): Promise<readonly CredentialInfo[]> {

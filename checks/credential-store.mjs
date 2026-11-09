@@ -5,6 +5,7 @@ import { mkdtemp, mkdir, readFile, rm, lstat, chmod, symlink, link, writeFile } 
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import test from 'node:test'
+import { pathToFileURL } from 'node:url'
 import { CredentialStoreError, SecureCredentialStore } from '../lib/index.js'
 
 const provider = 'openai-codex'
@@ -60,6 +61,54 @@ test('concurrent modifications serialize across store instances', async () => is
     return fixture(String(Number(current.access) + 1))
   })))
   assert.equal((await store.read(provider)).access, '4')
+}))
+
+test('Windows cold reads never observe another instance before its directory ACL is protected', { skip: process.platform !== 'win32' }, async () => {
+  for (let round = 0; round < 6; round++) {
+    await isolated(async store => {
+      const outcomes = await Promise.allSettled(Array.from({ length: 4 }, () =>
+        new SecureCredentialStore(join(store.stateDirectory, '..', '..')).read(provider)))
+      assert.deepEqual(outcomes.map(outcome => outcome.status), ['fulfilled', 'fulfilled', 'fulfilled', 'fulfilled'])
+      assert.ok(outcomes.every(outcome => outcome.value === undefined))
+    })
+  }
+})
+
+test('Windows independent processes initialize the same private store safely', { skip: process.platform !== 'win32' }, async () => isolated(async store => {
+  const entry = pathToFileURL(join(import.meta.dirname, '..', 'lib', 'index.js')).href
+  const code = `
+    const { SecureCredentialStore } = await import(process.env.DSH_TEST_STORE_ENTRY)
+    try {
+      await new SecureCredentialStore(process.env.DSH_TEST_STORE_HOME).read('openai-codex')
+      process.stdout.write('ok')
+    } catch (error) {
+      process.stdout.write(error.code || 'CHECK_FAILED')
+      process.exitCode = 1
+    }
+  `
+  const outcomes = await Promise.allSettled(Array.from({ length: 4 }, () => promisify(execFile)(process.execPath,
+    ['--input-type=module', '-e', code], {
+      windowsHide: true,
+      timeout: 90_000,
+      env: { ...process.env, DSH_TEST_STORE_ENTRY: entry, DSH_TEST_STORE_HOME: join(store.stateDirectory, '..', '..') },
+    })))
+  assert.deepEqual(outcomes.map(outcome => outcome.status), ['fulfilled', 'fulfilled', 'fulfilled', 'fulfilled'])
+  assert.ok(outcomes.every(outcome => outcome.value.stdout === 'ok'))
+}))
+
+test('Windows checker failures are reported separately and preserve the saved credential', { skip: process.platform !== 'win32' }, async () => isolated(async (store, root) => {
+  await store.modify(provider, async () => fixture())
+  const originalRoot = process.env.SystemRoot
+  try {
+    process.env.SystemRoot = join(root, 'missing Windows installation')
+    await assert.rejects(store.read(provider), error => error instanceof CredentialStoreError
+      && error.code === 'WINDOWS_CREDENTIAL_CHECK_FAILED'
+      && !error.message.includes('permissions are unsafe'))
+  } finally {
+    if (originalRoot === undefined) delete process.env.SystemRoot
+    else process.env.SystemRoot = originalRoot
+  }
+  assert.deepEqual(await store.read(provider), fixture())
 }))
 
 test('malformed envelopes fail with redacted diagnostics', async () => isolated(async store => {

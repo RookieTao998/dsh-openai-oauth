@@ -25,7 +25,9 @@ Sign in to ChatGPT from DeepSeek Harness and use available Codex models without 
 - For Web/headless or source builds: Node.js `^22.19.0` or `>=24.0.0`, and `pnpm` on `PATH`
 - A ChatGPT account with Codex access
 
-Version `0.4.0` targets Windows DSH Desktop as well as local Web and headless use on macOS and Linux. Real Desktop and OAuth acceptance has not yet been completed; see the manual checks below.
+Version `0.4.1` targets Windows DSH Desktop as well as local Web and headless use on macOS and Linux. Real Desktop and OAuth acceptance has not yet been completed; see the manual checks below.
+
+Version `0.4.1` fixes false Windows credential-permission errors during concurrent first initialization and case-sensitive PowerShell module-path environment overrides. Upgrading preserves saved credentials; add the new archive, then fully quit and reopen Desktop.
 
 When upgrading from plugin `0.1.x`, upgrade DSH first, reinstall the plugin, then restart DSH. Saved OAuth credentials remain in the same location.
 
@@ -42,7 +44,7 @@ When it finishes, you only need to approve any DSH restart and complete the Chat
 Desktop includes its Node and pnpm runtime. Start Desktop once to initialize its profile. Use the application menu's **Manage dsh Command…** to install the command, open a new terminal, and confirm `dsh --version` is `0.2.2-rc.1`. Quit Desktop through its tray menu; closing the window keeps it running. From this project's root, install the locally built package:
 
 ```powershell
-$pluginArchive = (Resolve-Path .\artifacts\dsh-openai-oauth-0.4.0.tgz).Path
+$pluginArchive = (Resolve-Path .\artifacts\dsh-openai-oauth-0.4.1.tgz).Path
 dsh plugin --profile desktop add $pluginArchive
 dsh plugin --profile desktop list
 ```
@@ -50,19 +52,19 @@ dsh plugin --profile desktop list
 You can also install through Desktop's Plugins UI: paste the archive's absolute path into **Add plugin**, without surrounding quotation marks. For this checkout:
 
 ```text
-E:/workspeace/dsh-openai-oauth/artifacts/dsh-openai-oauth-0.4.0.tgz
+E:/workspeace/dsh-openai-oauth/artifacts/dsh-openai-oauth-0.4.1.tgz
 ```
 
 Windows **Copy as path** may add quotation marks; remove them after pasting into the UI. The UI treats them as part of the address and reports “not a package name the registry accepts”. A terminal shell handles command-line quotes separately.
 
-Do not use an ordinary npm-installed `dsh` to manage the Desktop profile; check the command's actual location in its management dialog. Reopen Desktop to load the plugin. Version `0.4.0` has not been published to npm; use the local archive.
+Do not use an ordinary npm-installed `dsh` to manage the Desktop profile; check the command's actual location in its management dialog. Reopen Desktop to load the plugin. Version `0.4.1` has not been published to npm; use the local archive.
 
 ### Install with DSH Web
 
 After the package is published:
 
 ```sh
-dsh plugin --profile web add dsh-openai-oauth@0.4.0
+dsh plugin --profile web add dsh-openai-oauth@0.4.1
 dsh --profile web --dump-config
 ```
 
@@ -72,7 +74,7 @@ dsh --profile web --dump-config
 pnpm install --frozen-lockfile
 pnpm run check
 pnpm pack
-dsh plugin --profile web add ./dsh-openai-oauth-0.4.0.tgz
+dsh plugin --profile web add ./dsh-openai-oauth-0.4.1.tgz
 dsh --profile web --dump-config
 ```
 
@@ -90,7 +92,7 @@ Browser login waits for a callback on `127.0.0.1:1455`. Use Device Code when tha
 For a headless profile:
 
 ```sh
-dsh plugin --profile headless add ./dsh-openai-oauth-0.4.0.tgz
+dsh plugin --profile headless add ./dsh-openai-oauth-0.4.1.tgz
 dsh plugin --profile headless exec dsh-openai-login
 ```
 

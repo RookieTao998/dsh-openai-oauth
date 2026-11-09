@@ -4,12 +4,13 @@ import { dirname, join } from 'node:path'
 // Keep executable code fixed: paths travel as base64-encoded JSON on stdin.
 const ACL_SCRIPT = `
 $ErrorActionPreference = 'Stop'
+$ProgressPreference = 'SilentlyContinue'
 try {
   $data = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String([Console]::In.ReadToEnd())) | ConvertFrom-Json
   $item = Get-Item -LiteralPath $data.path -Force
-  if (($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) { exit 1 }
+  if (($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) { exit 2 }
   $directory = $data.kind -eq 'directory'
-  if ($item.PSIsContainer -ne $directory) { exit 1 }
+  if ($item.PSIsContainer -ne $directory) { exit 2 }
   $sid = [Security.Principal.WindowsIdentity]::GetCurrent().User
   $acl = Get-Acl -LiteralPath $data.path
   if ($data.protect) {
@@ -26,27 +27,33 @@ try {
     Set-Acl -LiteralPath $data.path -AclObject $acl
     $acl = Get-Acl -LiteralPath $data.path
   }
-  if (!$acl.AreAccessRulesProtected) { exit 1 }
-  if ($acl.GetOwner([Security.Principal.SecurityIdentifier]).Value -ne $sid.Value) { exit 1 }
+  if (!$acl.AreAccessRulesProtected) { exit 2 }
+  if ($acl.GetOwner([Security.Principal.SecurityIdentifier]).Value -ne $sid.Value) { exit 2 }
   $fullControl = [Security.AccessControl.FileSystemRights]::FullControl
   $granted = $false
   foreach ($rule in $acl.GetAccessRules($true, $true, [Security.Principal.SecurityIdentifier])) {
-    if ($rule.IdentityReference.Value -ne $sid.Value -or $rule.AccessControlType -ne 'Allow') { exit 1 }
+    if ($rule.IdentityReference.Value -ne $sid.Value -or $rule.AccessControlType -ne 'Allow') { exit 2 }
     if (($rule.PropagationFlags -band [Security.AccessControl.PropagationFlags]::InheritOnly) -ne 0) { continue }
     if (($rule.FileSystemRights -band $fullControl) -eq $fullControl) { $granted = $true }
   }
-  if (!$granted) { exit 1 }
+  if (!$granted) { exit 2 }
   [Console]::Out.Write('protected')
-} catch { exit 1 }
+} catch { exit 3 }
 `
 
-/** Set or verify an owner-only Windows DACL, failing closed on unsupported storage. */
+/** Return true for a private DACL, false for a rejected ACL, or undefined when verification cannot run. */
 export async function windowsPrivateAccess(
   path: string,
   kind: 'directory' | 'file',
   protect: boolean,
-): Promise<boolean> {
+): Promise<boolean | undefined> {
   const command = join(process.env['SystemRoot'] ?? 'C:\\Windows', 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe')
+  const environment = { ...process.env }
+  // Windows de-duplicates child environment keys case-insensitively, so remove every old spelling first.
+  for (const key of Object.keys(environment)) {
+    if (key.toLowerCase() === 'psmodulepath') delete environment[key]
+  }
+  environment['PSModulePath'] = join(dirname(command), 'Modules')
   return new Promise(resolve => {
     const child = execFile(command, [
       '-NoLogo', '-NoProfile', '-NonInteractive', '-EncodedCommand',
@@ -54,13 +61,14 @@ export async function windowsPrivateAccess(
     ], {
       windowsHide: true,
       timeout: 15_000,
-      maxBuffer: 1024,
-      // A PowerShell 7 parent can leave incompatible modules on PSModulePath.
-      env: { ...process.env, PSModulePath: join(dirname(command), 'Modules') },
+      maxBuffer: 16 * 1024,
+      env: environment,
     }, (error, stdout) => {
-      resolve(error === null && stdout === 'protected')
+      if (error === null && stdout === 'protected') resolve(true)
+      else if (error?.code === 2) resolve(false)
+      else resolve(undefined)
     })
-    child.stdin?.on('error', () => resolve(false))
+    child.stdin?.on('error', () => resolve(undefined))
     child.stdin?.end(Buffer.from(JSON.stringify({ path, kind, protect }), 'utf8').toString('base64'))
   })
 }

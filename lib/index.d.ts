@@ -429,7 +429,8 @@ declare class SecureCredentialStore implements CredentialStore {
    */
   constructor(dshHome: string);
   private assertDirectory;
-  private ensureStateDirectory;
+  private ensureParentDirectories;
+  private assertWindowsAccess;
   private assertCredentialFile;
   private readEnvelope;
   private withLock;
